@@ -23,17 +23,6 @@ entries:
     urls:
     - https://github.com/panteparak/helm-charts/releases/download/helm-flexi-toolkit-1.0.0/helm-flexi-toolkit-1.0.0.tgz
     version: 1.0.0
-  k8s-create-namespace:
-  - apiVersion: v2
-    appVersion: 1.0.0
-    created: "2024-07-27T11:32:53.739245544Z"
-    description: A Helm chart for Kubernetes Namespace Resources
-    digest: aaa822b8d44595050e0a5f72de2ef6e8c95a81a5c3676338194eb7727209dd31
-    name: k8s-create-namespace
-    type: application
-    urls:
-    - https://github.com/panteparak/helm-charts/releases/download/k8s-create-namespace-1.0.2/k8s-create-namespace-1.0.2.tgz
-    version: 1.0.2
   namespace-resource-manifest:
   - apiVersion: v2
     appVersion: 1.0.0
