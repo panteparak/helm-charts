@@ -1,0 +1,5 @@
+.DS_Store
+value*
+!values-examples.yaml
+!values.yaml
+

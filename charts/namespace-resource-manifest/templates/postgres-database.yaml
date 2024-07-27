@@ -1,0 +1,31 @@
+{{- $root := $ -}}
+{{- with .Values.database -}}
+{{- if .enabled -}}
+---
+apiVersion: "kinda.rocks/v1beta1"
+kind: "Database"
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name | quote }}
+    application.env: {{ $.Values.application.environment | quote }}
+spec:
+  cleanup: true
+  secretName: {{ .name }}-credentials
+  instance: {{ .instance }}
+  deletionProtected: {{ .deletionProtected | default true }}
+  backup:
+    enable: false
+  credentials: 
+    templates:
+      - name: DATABASE_URL
+        template: "{{`{{ .Protocol }}`}}://{{`{{ .Username }}`}}:{{`{{ .Password }}`}}@{{`{{ .Hostname }}`}}:{{`{{ .Port }}`}}/{{`{{ .Database }}`}}?sslmode=require"
+        secret: true
+      - name: PSQL_URL
+        template: "host={{`{{ .Hostname }}`}} user={{`{{ .Username }}`}} password={{`{{ .Password }}`}} dbname={{`{{ .Database }}`}} port={{`{{ .Port }}`}} sslmode=require"
+        secret: true
+---
+{{- end }}
+{{- end }}

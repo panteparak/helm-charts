@@ -1,0 +1,11 @@
+urls: []
+
+gateway:
+  enabled: true
+  selector:
+    istio: internal-ingress
+  tlsCertificate: 
+    enabled: true
+    issuerName: "teparak-dev-letsencrypt-acme-dns-ci"
+    privateKey:
+      size: 4096

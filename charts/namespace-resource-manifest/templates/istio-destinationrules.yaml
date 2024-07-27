@@ -1,0 +1,30 @@
+{{- range $i, $domain := .Values.gateway.exposeServices.domains }}
+{{- $domainName := ($domain.name | required ".Values.gateway.domain requires a valid domain" | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/") -}}
+{{- range $ii, $service := $domain.httpServices }}
+{{- if ($service.tlsService | default false) }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{ $.Values.application.name }}-{{ $domainName | replace "." "-" }}-tls-dr
+  namespace: {{ $.Release.Namespace }}
+spec:
+  host: {{ $service.name | quote }}
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+    connectionPool:
+      tcp:
+        connectTimeout: 200ms
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http2MaxRequests: 1024
+        http1MaxPendingRequests: 1024
+        h2UpgradePolicy: UPGRADE
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: {{ $service.tlsSkipVerify | default false }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,83 @@
+{{ $clusterWideSecret := .Values.selfsignIssuer.clusterWideSecret | default false }}
+{{ $namespace := .Release.Namespace }}
+{{- if .Values.selfsignIssuer.enabled -}}
+{{- range $caName, $certMetadata := .Values.selfsignIssuer.certificates }}
+{{- $selfsignedCaName := printf "%s-selfsigned-ca" $caName -}}
+{{- $selfsignedCaSecretName := printf "%s-secret" $selfsignedCaName -}}
+{{- $caIssuerName := printf "%s-issuer" $selfsignedCaName -}}
+
+{{- range $cert := $certMetadata.items -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $cert.name }}-selfsigned-certificate
+  {{- if $clusterWideSecret }}
+  namespace: clusterwide-secrets
+  {{- else }}
+  namespace: {{ $namespace }}
+  {{- end }}
+  labels:
+    certificate.name: {{ $cert.name }}
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name | quote }}
+    application.env: {{ $.Values.application.environment | quote }}
+  annotations:
+    cert-manager.io/issue-temporary-certificate: "true"
+spec:
+  duration: 8760h # 1Y
+  renewBefore: 480h # 20d
+  secretName: {{ printf "%s" $cert.name | trimSuffix "-" }}-selfsigned-certificate
+  isCA: {{ $cert.isCA | default false }}
+  secretTemplate:
+    annotations:
+      {{- if $cert.clusterWideSecretOverride.enabled }}
+      kubed.appscode.com/sync: {{ $cert.clusterWideSecretOverride.name }}=enabled
+      {{- end }}
+  subject:
+    organizations:
+    - TeparakDev
+  privateKey:
+    rotationPolicy: Always
+    {{ $certMetadata.privateKey | toYaml | nindent 4 }}
+  usages:
+    {{- if $cert.usage }}
+    {{ $cert.usage | nindent 4 }}
+    {{- else }}
+    - digital signature
+    - key encipherment
+    - server auth
+    - client auth
+    {{- end }}
+  ipAddresses:
+    - "127.0.0.1"
+  commonName: "{{ $cert.name }}"
+  dnsNames:
+    - "localhost"
+    - "{{ $cert.name }}"
+    - "{{ $cert.name }}.{{ $.Release.Namespace }}"
+    - "{{ $cert.name }}.{{ $.Release.Namespace }}.svc"
+    - "{{ $cert.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
+    - "*.{{ $cert.name }}"
+    - "*.{{ $cert.name }}.{{ $.Release.Namespace }}"
+    - "*.{{ $cert.name }}.{{ $.Release.Namespace }}.svc"
+    - "*.{{ $cert.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
+    {{- with $cert.additionalDnsNames }}
+    {{- range . }}
+    - "{{ . }}"
+    - "{{ . }}.{{ $.Release.Namespace }}"
+    - "{{ . }}.{{ $.Release.Namespace }}.svc"
+    - "{{ . }}.{{ $.Release.Namespace }}.svc.cluster.local"
+    - "*.{{ . }}"
+    - "*.{{ . }}.{{ $.Release.Namespace }}"
+    - "*.{{ . }}.{{ $.Release.Namespace }}.svc"
+    - "*.{{ . }}.{{ $.Release.Namespace }}.svc.cluster.local"
+    {{- end }}
+    {{- end }}
+  issuerRef:
+    name: {{ $caIssuerName }}
+    kind: Issuer
+    group: cert-manager.io
+---
+{{- end }}   
+{{- end }}
+{{- end }}

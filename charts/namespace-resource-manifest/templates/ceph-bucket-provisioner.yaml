@@ -1,0 +1,32 @@
+# https://rook.io/docs/rook/v1.8/ceph-object-bucket-claim.html#sample
+
+# External Access, Create Additional User etc 
+# https://github.com/rook/rook/blob/master/Documentation/ceph-object.md#access-external-to-the-cluster
+
+# Consider Migrating to SSL Service?
+# Decide whether to make it a 
+
+{{- range $i, $meta := .Values.objectStorage }}
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: ceph-bucket-{{ $meta.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name | quote }}
+    application.env: {{ $.Values.application.environment | quote }}
+spec:
+  generateBucketName: ceph-bucket-{{ $meta.name }}
+  storageClassName: rook-ceph-bucket
+  {{- if hasKey $meta "additionalConfig" -}}
+  additionalConfig: {{ $meta.additionalConfig }}
+  {{- end }}
+---
+{{- end }}
+
+
+# export AWS_HOST=$(kubectl -n default get cm ceph-bucket -o jsonpath='{.data.BUCKET_HOST}')
+# export AWS_ACCESS_KEY_ID=$(kubectl -n default get secret ceph-bucket -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 --decode)
+# export AWS_SECRET_ACCESS_KEY=$(kubectl -n default get secret ceph-bucket -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 --decode)
+# export AWS_BUCKET=$(kubectl get configmap ceph-bucket -o jsonpath={.data.BUCKET_NAME})

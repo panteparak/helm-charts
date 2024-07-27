@@ -1,0 +1,69 @@
+{{- $patchIstio := "" }}
+{{- $workOrderName := printf "patch-istio-injection" -}}
+{{- $serviceAccountName := printf "%s-sa-%s" $workOrderName .Release.Name -}}
+{{- if .Values.gateway.enabled }}
+{{- $patchIstio = "enabled" }}
+{{- else}}
+{{- $patchIstio = "disabled" }}
+{{- end }}
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: {{ $serviceAccountName }}
+  namespace: {{ include "namespace" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $workOrderName }}-role-{{ .Release.Name }}
+  namespace: {{ include "namespace" . }}
+rules:
+- apiGroups: [""]
+  resources:
+    - "namespaces"
+  resourceNames: 
+    - {{ include "namespace" . }}
+  verbs:
+    - "get"
+    - "patch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $workOrderName }}-role-binding-{{ .Release.Name }}
+  namespace: {{ include "namespace" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $workOrderName }}-role-{{ .Release.Name }}
+subjects:
+- kind: ServiceAccount
+  name: {{ $serviceAccountName }}
+  namespace: {{ include "namespace" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $workOrderName }}-job-{{ .Release.Name }}
+  namespace: {{ include "namespace" . }}
+spec:
+  parallelism: 1
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ $serviceAccountName }}
+      restartPolicy: Never
+      containers:
+      - name: label-ns-{{ .Release.Name }}
+        image: panteparak/k8s-patcher:dev
+        imagePullPolicy: Always
+        command:
+        - "/bin/bash"
+        - "-c"
+        - "patch-namespace-istio-inject-{{ $patchIstio }}.sh"
+---

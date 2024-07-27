@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ .Release.Name | trimSuffix "-" }}-gw
+spec:
+  selector:
+    {{ toYaml .Values.gateway.selector }}
+  servers:
+    - hosts:
+        {{- range .Values.urls }}
+        - {{ . | quote}}
+        - {{ printf "*.%s" . | quote }}
+        {{- end }}
+      port:
+        name: http
+        number: 80
+        protocol: HTTP
+      tls:
+        httpsRedirect: true
+    - hosts:
+        {{- range .Values.urls }}
+        - {{ . | quote }}
+        - {{ printf "*.%s" . | quote }}
+        {{- end }}
+      port:
+        name: https
+        number: 443
+        protocol: HTTPS
+      tls:
+        credentialName: {{ .Release.Name | trimSuffix "-" }}-letsencrypt-tls
+        mode: SIMPLE

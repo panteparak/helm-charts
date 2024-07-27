@@ -1,0 +1,66 @@
+{{- $root := $ -}}
+{{- with .Values.database -}}
+---
+apiVersion: db.movetokube.com/v1alpha1
+kind: Postgres
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name | quote }}
+    application.env: {{ $.Values.application.environment | quote }}
+  annotations:
+    postgres.db.movetokube.com/instance: cockroach-db
+spec:
+  database: {{ .name }}
+  dropOnDelete: {{ .dropOnDelete | default false }}
+  schemas:
+    - public
+    {{- with .schemas -}}
+    {{ toYaml . | nindent 4 | default }}
+    {{- end }}
+  extensions:
+    {{- with .extensions -}}
+    {{ toYaml . | nindent 4 | default }}
+    {{- end }}
+---
+apiVersion: db.movetokube.com/v1alpha1
+kind: PostgresUser
+metadata:
+  name: {{ .name }}-dba
+  namespace: {{ $.Release.Namespace }}
+  annotations:
+    postgres.db.movetokube.com/instance: cockroach-db
+
+spec:
+  role: {{ .name }}-dba
+  database: {{ .name }}
+  secretName: {{ .name }}-dba-secret
+  privileges: {{ .privileges | default "OWNER" }}     # Can be OWNER/READ/WRITE
+  labels:
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name }}
+  secretTemplate:       # Output secrets can be customized using standard Go templates
+    PQ_URL: "host={{.Host}} user={{.Role}} password={{.Password}} dbname={{.Database}} sslmode=require"
+---
+{{- with .users -}}
+apiVersion: db.movetokube.com/v1alpha1
+kind: PostgresUser
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  annotations:
+    postgres.db.movetokube.com/instance: cockroach-db
+spec:
+  role: {{ .name }}
+  database: {{ .name }}
+  secretName: {{ .name }}-secret
+  privileges: {{ .privileges | default "OWNER" }}     # Can be OWNER/READ/WRITE
+  labels:
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name }}
+  secretTemplate:       # Output secrets can be customized using standard Go templates
+    PQ_URL: "host={{.Host}} user={{.Role}} password={{.Password}} dbname={{.Database}} sslmode=require"
+{{- end }}
+{{- end }}

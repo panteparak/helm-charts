@@ -1,0 +1,72 @@
+{{- if and .Values.gateway.enabled .Values.gateway.exposeServices.enabled -}}
+{{- range $i, $domain := .Values.gateway.exposeServices.domains }}
+{{- $domainName := ($domain.name | required ".Values.gateway.domain requires a valid domain" | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/") -}}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ $.Values.application.name }}-{{ $domainName | replace "." "-" }}-vs
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name | quote }}
+    application.env: {{ $.Values.application.environment | quote }}
+    domain.name: {{ $domainName }}
+spec:
+  hosts:
+    - {{ $domainName }}
+    {{- if $domain.wildcard }}
+    - "*.{{ $domainName }}"
+    {{- end }}
+  gateways:
+    - {{ $.Values.gateway.namespace | default "istio-gateway" }}/{{ default $.Values.gateway.name $domain.gateway }}
+  http:
+  {{- range $ii, $service := $domain.httpServices }}
+    - match:
+    {{- range $service.matchPrefixs }}
+      - uri:
+          prefix: {{ . | quote }}
+    {{- end }}
+      route:
+        - destination:
+            host: {{ $service.name | quote }}
+            port:
+              number: {{ $service.port }}
+      headers:
+        response:
+          set:
+            Strict-Transport-Security: "max-age={{ $.Values.gateway.hstsMaxAge | default "86400" }}; includeSubDomains"
+            {{- if and (hasKey $service "additionalResponseHeaders") ($service.additionalResponseHeaders) -}}
+              {{- toYaml $service.additionalResponseHeaders | nindent 12 }}
+            {{- end }}
+      {{- if and (hasKey $.Values.gateway "corsPolicy") ($.Values.gateway.corsPolicy) }}
+      corsPolicy:
+        {{ if and (hasKey $.Values.gateway.corsPolicy "origins") ($.Values.gateway.corsPolicy.origins) }}
+        allowOrigins:
+        {{- range $.Values.gateway.corsPolicy.origins }}
+          - exact: {{ . | quote }}
+        {{- end}}
+        {{ end }}
+        allowCredentials: {{ $.Values.gateway.corsPolicy.allowCredentials | default "false" }}
+        allowHeaders:
+          {{- range $.Values.gateway.corsPolicy.allowHeaders }}
+          - {{ . | quote }}
+          {{- end}}
+          
+      {{- end }}
+  {{- end }}
+  tcp:
+    {{- range $ii, $service := $domain.tcpServices }}
+    - match:
+      - port: {{ $service.port }}
+      {{- range $service.matchPorts }}
+      - port: {{ . }}
+      {{- end }}
+      route:
+        - destination:
+            host: {{ $service.name | quote }}
+            port:
+              number: {{ $service.port }}
+    {{- end }}
+---
+{{- end }}
+{{- end }}

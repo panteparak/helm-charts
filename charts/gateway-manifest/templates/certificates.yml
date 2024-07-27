@@ -1,0 +1,33 @@
+{{- if and (.Values.gateway.enabled) (.Values.gateway.tlsCertificate.enabled) -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name | trimSuffix "-" }}-certificate
+  namespace: {{ include "namespace" . }}
+spec:
+  secretName: {{ .Release.Name | trimSuffix "-" }}-letsencrypt-tls
+  duration: 2160h # 90d
+  renewBefore: 480h # 20d
+  subject:
+    organizations:
+    - TeparakDev
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    {{- with .Values.gateway.tlsCertificate.privateKey }}
+    size: {{ .size | default 4096 }}
+    {{- end }}
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    {{- range .Values.urls }}
+    - {{ . | quote }}
+    - {{ printf "*.%s" . | quote }}
+    {{- end }}
+  issuerRef:
+    name: {{ .Values.gateway.tlsCertificate.issuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}

@@ -1,0 +1,66 @@
+global:
+  organization: teparak-dev
+
+application:
+  name: ""
+  environment: "prd"
+  createNamespace: false
+  injectImagePullSecret: false
+
+cicd:
+  enabled: false
+
+gateway:
+  enabled: false
+  
+  name: internal-apps-dev-gw
+  namespace: istio-ingress
+  exposeServices:
+    enabled: false
+    # domains:
+    #   - name: "https://example.com"
+    #     httpServices:
+    #       - name: "http-service1"
+    #         port: 8080
+    #         matchPrefixs:
+    #           - "/api"
+    #         additionalResponseHeaders:
+    #           X-Custom-Header: "Value"
+    #     tcpServices:
+    #       - name: "tcp-service1"
+    #         port: 9090
+    #         matchPorts:
+    #           - 9091
+
+  tlsCertificate:
+    enabled: true
+    issuerName: "teparak-dev-letsencrypt-acme-dns-ci"
+    privateKey:
+      size: 4096
+
+# selfsignIssuer:
+#   enabled: false
+#   issuerName: selfsigned-cluster-issuer
+#   certificates:
+#     caIssuerName: ""
+#     items: []
+#   privateKey:
+#     size: 384
+
+
+
+selfsignIssuer:
+  enabled: false
+  issuerName: selfsigned-cluster-issuer
+  clusterWideSecret: false
+
+  certificates: {}
+
+serviceAccount: []
+
+objectStorage: []
+
+database:
+  enabled: false
+  instance: centralize-db-instance
+  

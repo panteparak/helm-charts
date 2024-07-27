@@ -1,0 +1,59 @@
+{{- if .Values.selfsignIssuer.enabled -}}
+{{ $clusterWideSecret := .Values.selfsignIssuer.clusterWideSecret }}
+{{ $namespace := .Release.Namespace }}
+{{- range $caName, $certMetadata := .Values.selfsignIssuer.certificates }}
+{{- $selfsignedCaName := printf "%s-selfsigned-ca" $caName -}}
+{{- $selfsignedCaSecretName := printf "%s-secret" $selfsignedCaName -}}
+{{- $caIssuerName := printf "%s-issuer" $selfsignedCaName -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $selfsignedCaName | quote }}
+  {{- if $clusterWideSecret }}
+  namespace: clusterwide-secrets
+  {{- else }}
+  namespace: {{ $namespace }}
+  {{- end }}
+  labels:
+    certificate.name: {{ $selfsignedCaName }}
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name | quote }}
+    application.env: {{ $.Values.application.environment | quote }}
+spec:
+  duration: 87600h # 10Y
+  renewBefore: 8760h # 1Y
+  secretName: {{ $selfsignedCaSecretName }}
+  commonName: {{ $selfsignedCaName }}
+  isCA: true
+  subject:
+    organizations:
+    - TeparakDev
+  privateKey:
+    rotationPolicy: Always
+    {{ $certMetadata.privateKey | toYaml | nindent 4 }}
+  usages:
+    - digital signature
+    - key encipherment
+  issuerRef:
+    name: {{ $.Values.selfsignIssuer.issuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $caIssuerName }}
+  {{- if $clusterWideSecret }}
+  namespace: clusterwide-secrets
+  {{- else }}
+  namespace: {{ $namespace }}
+  {{- end }}
+  labels:
+    organization: {{ $.Values.global.organization }}
+    application.name: {{ $.Values.application.name }}
+spec:
+  ca:
+    secretName: {{ $selfsignedCaSecretName }}
+---
+{{- end }}
+{{- end }}

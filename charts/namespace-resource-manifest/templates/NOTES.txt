@@ -1,0 +1,33 @@
+Run the following commands to received KUBECONFIG for deployment.
+
+
+get secret
+
+SECRET_NAME=$(kubectl get secret -n {{ .Release.Namespace }} | grep SERVICE_ACCOUNT_NAME-token | awk '{print $1}')
+
+kubectl get secret -n {{ .Release.Namespace }} SECRET_NAME -o jsonpath="{.data.namespace}"
+kubectl get secret -n {{ .Release.Namespace }} SECRET_NAME -o jsonpath="{.data.token}"
+kubectl get secret -n {{ .Release.Namespace }}SECRET_NAME -o jsonpath="{.data.ca\.crt}"
+
+
+
+CA=kubectl -n {{ .Release.Namespace }} describe secret SERVICE_ACCOUNT_NAME
+
+apiVersion: v1
+kind: Config
+clusters:
+  - name: home-k8s
+    cluster:
+      certificate-authority-data: CA
+      server: https://k8s-cluster.home.teparak.dev:6443
+contexts:
+  - name: SERVICE_ACCOUNT_NAME@home-k8s
+    context:
+      cluster: home-k8s
+      namespace: {{ .Release.Namespace }}
+      user: SERVICE_ACCOUNT
+users:
+  - name: SERVICE_ACCOUNT_NAME
+    user:
+      token: TOKEN
+current-context: SERVICE_ACCOUNT_NAME@home-k8s

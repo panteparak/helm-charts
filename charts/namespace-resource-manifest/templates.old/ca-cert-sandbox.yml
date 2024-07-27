@@ -1,0 +1,92 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ca-certificate
+  namespace: certificate-sandbox
+spec:
+  secretName: ca-cert
+  duration: 2880h # 120d
+  renewBefore: 360h # 15d
+  commonName: MySQL admin
+  isCA: true
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - digital signature
+    - key encipherment
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: ca-issuer
+spec:
+  ca:
+    secretName: ca-cert
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mysql-server
+  namespace: certificate-sandbox
+spec:
+  secretName: mysql-server-cert
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  isCA: false
+  privateKey:
+    size: 2048
+    algorithm: RSA
+    encoding: PKCS1
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  commonName: MySQL server
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: client-mysql
+  namespace: certificate-sandbox
+spec:
+  secretName: mysql-client-cert
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  privateKey:
+    size: 2048
+    algorithm: RSA
+    encoding: PKCS1
+  usages:
+    - digital signature
+    - key encipherment
+    - client auth
+  commonName: MySQL client
+  keystores:
+    jks:
+      create: true
+      passwordSecretRef:
+        key: password-key
+        name: jks-password-secret  
+  issuerRef:
+    name: ca-issuer
+    kind: Issuer
+    group: cert-manager.io
