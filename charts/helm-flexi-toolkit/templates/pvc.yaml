@@ -1,0 +1,28 @@
+{{ $gloablStorageClassName := $.Values.global.persistentVolumes.storageClassName }}
+{{ $globalAccessMode := $.Values.global.persistentVolumes.accessMode }}
+{{- range $srvName, $srvValue := .Values.applications -}}
+
+{{ with $srvValue.persistentVolumes }}
+{{- if .enabled }}
+{{- range $name, $meta := .claims -}}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+  name: {{ include "fullResourceName" $resourceNameParams }}-{{ $name }}-pvc
+  {{- if (or (not (hasKey $srvValue.persistentVolumes "deleteProtection")) $srvValue.persistentVolumes.deleteProtection) }}
+  finalizers:
+    - kubernetes.io/pvc-protection
+  {{- end }}
+spec:
+  storageClassName: {{ default "rook-ceph-block" $meta.storageClassName $gloablStorageClassName }}
+  accessModes:
+    - {{ default "ReadWriteOnce" $meta.accessMode $globalAccessMode }}
+  resources:
+    requests:
+      storage: {{ $meta.size }}
+---
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

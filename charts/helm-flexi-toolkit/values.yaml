@@ -1,0 +1,116 @@
+namespace: ""
+deploymentStrategy: "default" # Options: "default", "argo"
+
+global:
+  projectName: ""
+  asset: null # "For null or empty str should be treat as non existance"
+  environment: ""
+  persistentVolumes:
+    storageClassName: "rook-ceph-block"
+    accessMode: "ReadWriteOnce"
+  image:
+    registry: "asia.gcr.io"
+    repository: ""
+    subpath: ""
+    tag: ""
+    pullPolicy: "IfNotPresent"
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 1
+  nodeSelector: {}
+  replicaCount: 1
+  istioConfig:
+    gateways: []
+    hosts: []
+
+  resources: {}
+    # limits:
+    #   cpu: 1000m
+    #   memory: 12Gi
+    # requests:
+    #   cpu: 100m
+    #   memory: 1218Mi
+
+  podSecurityContext: {}
+    # fsGroup: 1001
+
+  containerSecurityContext: {}
+    # capabilities:
+    #   drop:
+    #     - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1001
+    # runAsGroup: 1001
+    # seccompProfile:
+    #   type: RuntimeDefault
+
+  runAs:
+    enabled: true
+    user: 1001
+    group: 1001
+    fsGroup: 1001
+
+applications: {}
+  # backend: # This is a Deployment Level.
+  #   image:
+  #     registry: "asia.gcr.io"
+  #     repository: ""
+  #     subpath: ""
+  #     tag: ""
+  #     pullPolicy: "IfNotPresent"
+  #   command: ""
+  #   args: []
+  #   ports:
+  #     - name: http
+  #       containerPort: 80
+  #   resources:
+  #     limits:
+  #       cpu: 1000m
+  #       memory: 1Gi
+  #     requests:
+  #       cpu: 100m
+  #       memory: 128Mi
+  #   probes:
+  #     startupProbe: {}
+  #     livenessProbe: {}
+  #     readinessProbe: {}
+  #   envs: {}
+
+  #   # Cannot specify how resources should be mount as file or env. (Secret, ConfigMap)
+  #   # SOLUTION: IF ENDING GAME IS '_FILE' then we mount a file and the env being the path to file.
+  #   # else we mount as env values
+  #   secrets: {}
+  #   configMaps: {}
+  #   exposeConfigMaps:
+  #     enabled: true
+  #     filename: config.json
+  #     mountPath: "/"
+  #     items: {}
+  #   additionalVolumes: []
+  #   additionalVolumesMounts: []
+
+  #   persistentVolumes:
+  #     enabled: true
+  #     claims:
+  #       someVolumeName:
+  #         accessMode: ""
+  #         storageClassName: ""
+  #         size: "1Gi"
+  #         mountPath: "" # TODO: this should mount deployment template
+
+  #   istioConfig:
+  #     routes:
+  #       - match:
+  #         - uri:
+  #             prefix: "/backend"
+  #         rewrite:
+  #           uri: "/backend"
+  #         route:
+  #         - destination:
+  #             host: -svc
+  #             port:
+  #               number: 80
+  #           weight: 100

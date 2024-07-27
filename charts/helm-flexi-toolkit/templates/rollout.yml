@@ -1,0 +1,37 @@
+{{- if eq (include "argo-deployment-strategy" (dict "strategy" $.Values.deploymentStrategy) | toString ) "true" }}
+{{- range $srvName, $srvValue := .Values.applications }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "resourceName" $ }}-{{ $srvName }}
+spec:
+  {{- $replicaCount := int (.global.replicaCount | default 2) }}
+  replicas: {{ $replicaCount }}
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "resourceName" $ }}-{{ $srvName }}
+  strategy:
+    canary:
+      {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+      canaryService: {{ include "fullResourceName" $resourceNameParams }}-canary
+      stableService: {{ include "fullResourceName" $resourceNameParams }}-stable
+      trafficRouting:
+        istio:
+          virtualService:
+            {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+            name: {{ include "fullResourceName" $resourceNameParams }}-vs
+            routes:
+              - primary
+      steps:
+        - setWeight: 15
+        - pause: {duration: "5m"}
+        - setWeight: 30
+        - pause: {duration: "30m"}
+        - pause: {}
+        - setWeight: 60
+        - pause: {duration: "2h"}
+        - pause: {}
+        - setWeight: 100
+{{- end }}
+{{- end }}

@@ -1,0 +1,45 @@
+{{- range $srvName, $srvValue := .Values.applications }}
+{{- with $srvValue.routers }}
+apiVersion: v1
+kind: Service
+metadata:
+  {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+  name: {{ include "fullResourceName" $resourceNameParams }}-stable
+  labels:
+    {{- include "labels" (dict "global" $.Values.global "module" $srvName) | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    {{- range $router := $srvValue.routers }}
+    - name: {{ $router.name }}
+      port: {{ $router.port }}
+      targetPort: {{ $router.containerPort | default $router.port }}
+    {{- end }}
+  selector:
+    subset: stable
+    {{- include "labels" (dict "global" $.Values.global "module" $srvName) | nindent 4 }}
+---
+{{- if eq (include "argo-deployment-strategy" (dict "strategy" $.Values.deploymentStrategy) | toString ) "true" }}
+apiVersion: v1
+kind: Service
+metadata:
+  {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+  name: {{ include "fullResourceName" $resourceNameParams }}-canary
+  labels:
+    {{- include "labels" (dict "global" $.Values.global "module" $srvName) | nindent 4 }}
+    test: {{ include "argo-deployment-strategy" (dict "strategy" $.Values.deploymentStrategy) }}
+spec:
+  type: ClusterIP
+  ports:
+    {{- range $router := $srvValue.routers }}
+    - name: {{ $router.name }}
+      port: {{ $router.port }}
+      targetPort: {{ $router.containerPort | default $router.port }}
+    {{- end }}
+  selector:
+    subset: canary
+    {{- include "labels" (dict "global" $.Values.global "module" $srvName) | nindent 4 }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

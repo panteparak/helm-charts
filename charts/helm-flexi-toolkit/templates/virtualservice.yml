@@ -1,0 +1,31 @@
+{{- range $srvName, $srvValue := .Values.applications }}
+{{- range $service := $srvValue.routers }}
+{{- if (hasKey $service "routes" ) -}}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+  name: {{ include "fullResourceName" $resourceNameParams }}-vs
+spec:
+  hosts:
+    - {{ $service.host | default $.Values.global.routers.host | quote }}
+  gateways:
+  {{- if ( hasKey $service "gateway") }}
+    - {{ $service.gateway }}
+  {{- else -}}
+  {{- range $.Values.global.routers.gateways }}
+    - {{ . | quote }}
+  {{- end}}
+  {{- end }}
+  http:
+    {{- toYaml $service.routes | nindent 4 }}
+      route:
+        - destination:
+            {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+            host: {{ include "fullResourceName" $resourceNameParams }}-stable
+            port:
+              number: {{ $service.port }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

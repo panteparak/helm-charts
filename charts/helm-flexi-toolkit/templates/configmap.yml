@@ -1,0 +1,25 @@
+
+---
+{{- range $srvName, $srvValue := .Values.applications }}
+{{- if and ($srvValue.exposeConfigMaps.enabled) (and $srvValue.exposeConfigMaps.items (kindIs "map" $srvValue.exposeConfigMaps.items)) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "resourceName" $ }}-{{ $srvName }}-expose-cm
+  namespace: {{ $.Values.namespace }}
+data:
+  {{ $srvValue.exposeConfigMaps.filename }}: {{ $srvValue.exposeConfigMaps.items | toJson }} # expose projectName backendUrl deloreanUrl endpointurl through mergeDict
+---
+{{- end }}
+{{- if and ($srvValue.configMaps) (and $srvValue.configMaps (kindIs "map" $srvValue.configMaps)) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "resourceName" $ }}-{{ $srvName }}-cm
+data:
+  {{- range $configFileName, $configValue := $srvValue.configMaps }}
+    {{ $configFileName }}: {{ $configValue }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

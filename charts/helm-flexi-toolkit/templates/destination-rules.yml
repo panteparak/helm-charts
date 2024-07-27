@@ -1,0 +1,37 @@
+{{- range $srvName, $srvValue := .Values.applications }}
+---
+{{- $maxConn := 32 }}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "resourceName" $ }}-{{ $srvName }}-dr
+spec:
+  host: {{ include "resourceName" $ }}-{{ $srvName }}-svc
+  subsets:
+    - name: stable
+      labels:
+        subset: stable
+    {{- if eq (include "argo-deployment-strategy" (dict "strategy" $.Values.deploymentStrategy) | toString ) "true" }}
+    - name: canary
+      labels:
+        subset: canary
+    {{- end }}
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+    connectionPool:
+      tcp:
+        maxConnections: {{ mul $maxConn 2 }}
+        connectTimeout: 200ms
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 1024
+        http2MaxRequests: {{ mul $maxConn 2 }}
+        h2UpgradePolicy: UPGRADE
+---
+{{- end }}

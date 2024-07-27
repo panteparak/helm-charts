@@ -1,0 +1,230 @@
+{{- define "app-container" -}}
+{{- $global := .global -}}
+- name: {{ lower .name | quote }}
+  {{- include "deployment-image" (dict "image" .service.image "global" $global) | trim | nindent 2 }}
+  resources:
+    {{- toYaml (.service.resources | default $global.resources | default dict) | trim | nindent 4 -}}
+  {{- with .service.routers }}
+  ports:
+    {{- range $ports := . }}
+    - name: {{ $ports.name | trim }}
+      containerPort: {{ $ports.port }}
+      protocol: {{ $ports.protocol | default "TCP" }}
+      {{- with $ports.containerPort }}
+      containerPort: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- with .service.probes.livenessProbe}}
+  livenessProbe:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  {{- with .service.probes.readinessProbe }}
+  readinessProbe:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  {{- with .service.probes.startupProbe}}
+  startupProbe:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  {{- $uid := .service.runAs.user }}
+  {{- $gid := .service.runAs.group }}
+  {{- with (default $global.containerSecurityContext .service.containerSecurityContext) }}
+  securityContext:
+    {{- toYaml . | trim | nindent 4 }}
+    {{- if eq (.service.runAs.enabled) }}
+    runAsUser: {{ $uid }}
+    runAsGroup: {{ $gid }}
+    {{- end }}
+  {{- end }}
+  {{- with .service.envs }}
+  env:
+    {{- range $envKey, $envValue := . }}
+    {{- if and $envValue (kindIs "map" $envValue) }}
+    - name: {{ $envKey | trim | quote }}
+      {{ $envValue | toYaml | trim | nindent 6 }}
+    {{- end }}
+    {{- if (kindIs "string" $envValue) }}
+    - name: {{ upper $envKey | trim | quote }}
+      value: {{ $envValue | trim | quote }}
+    {{- else }}
+    - name: {{ upper $envKey | trim | quote }}
+      value: {{ $envValue }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+  volumeMounts:
+    - name: vault-volume
+      mountPath: /home/swadm/vault
+      readOnly: true
+      recursiveReadOnly: Enabled
+    {{- if and .service.exposeConfigMaps.items (kindIs "map" .service.exposeConfigMaps.items) }}
+    - name: {{ include "resourceName" .root }}-{{ .name }}-cm-volume
+      mountPath: {{ (.service.exposeConfigMaps.mountPath | quote) | default "/secrets/config.json" }}
+    {{- end }}
+    {{- with .service.persistentVolumes -}}
+    {{- if .enabled }}
+    {{- range $claimName, $meta := .claims -}}
+    {{- $resourceNameParams := dict "projectName" $global.projectName "serviceName" .name }}
+    - name: {{ $claimName | replace " " "_" }}-data
+      {{- $defaultMountPath := printf "/mnt/%s" ($claimName | replace " " "_") }}
+      mountPath: {{ $meta.mountPath | default $defaultMountPath }}
+    {{- end }}
+    {{- range $claim := .existingClaims -}}
+    {{- $resourceNameParams := dict "projectName" $global.projectName "serviceName" $claim.service }}
+    - name: {{ $claim.name | replace " " "_" }}-data
+      {{- $defaultMountPath := printf "/mnt/%s" ($claim.name | replace " " "_") }}
+      mountPath: {{ $claim.mountPath | default $defaultMountPath }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- with .service.additionalVolumesMounts -}}
+    {{ toYaml .service.additionalVolumesMounts | trim | nindent 12 }}
+    {{ end }}
+{{- end -}}
+
+{{- define "init-copy-secret" -}}
+- name: init-secret-fs-permission
+  image: alpine:3.19
+  resources:
+    limits:
+      cpu: 100m
+      memory: 0.25Gi
+  command:
+    - sh
+    - -c
+    - |
+      set -x;
+      apk add --no-cache tree;
+      ls -lart $HOME_DIR/mnt;
+      cp -LR $HOME_DIR/mnt/* $HOME_DIR/vault/;
+      chown -R "$UID:$GID" $HOME_DIR/vault;
+      chmod -R 500 $HOME_DIR/vault;
+      chmod -R 400 $HOME_DIR/vault/*;
+      tree $HOME_DIR/vault;
+  env:
+    - name: UID
+      value: "{{ .service.runAs.user }}"
+    - name: GID
+      value: "{{ .service.runAs.group }}"
+    - name: HOME_DIR
+      value: "{{ .homeDir }}"
+  securityContext:
+    runAsUser: 0
+  volumeMounts:
+    {{- if and .service.exposeConfigMaps.items (kindIs "map" .service.exposeConfigMaps.items) }}
+    - mountPath: {{ .homeDir }}/mnt/expose-configmaps
+      name: {{ include "resourceName" .root }}-{{ .module }}-expose-cm-volume
+    {{- end }}
+    {{- if and .service.configMaps (kindIs "map" .service.configMaps) }}
+    - mountPath: {{ .homeDir }}/mnt/configmaps
+      name: {{ include "resourceName" .root }}-{{ .module }}-cm-volume
+    {{- end }}
+    - mountPath: {{ .homeDir }}/mnt/secrets
+      name: {{ include "resourceName" .root }}-{{ .module }}-secret-volume
+    - mountPath: {{ .homeDir }}/vault
+      name: vault-volume
+{{- end }}
+
+{{- define "deployment-strategy" -}}
+
+{{- end -}}
+
+{{- $HOME_DIR := "/home/swadm" -}}
+{{ $global := .Values.global }}
+{{- range $srvName, $srvValue := .Values.applications }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "resourceName" $ }}-{{ $srvName }}
+  labels:
+    {{- include "labels" (dict "global" $.Values.global "module" $srvName) | trim | nindent 4 }}
+spec:
+  {{- if eq $.Values.deploymentStrategy "argo" }}
+  replicas: 0
+  {{- else -}}
+  {{- $replicaCount := int ($global.replicaCount | default 1) }}
+  replicas: {{ $replicaCount }}
+  {{- if le $replicaCount 1 }}
+  strategy:
+    type: Recreate
+  {{- else }}
+  {{- with .global.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "labels" (dict "global" $.Values.global "module" $srvName) | trim | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: {{ lower $srvName | quote }}
+        project: {{ $.Values.global.projectName }}
+        proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+        deployment.checksum/config: {{ include (print $.Template.BasePath "/configmap.yml") $ | sha256sum | quote }}
+        deployment.checksum/secret: {{ include (print $.Template.BasePath "/secret.yml") $ | sha256sum | quote }}
+        {{- if $srvValue.additionalPodAnnotations }}
+        {{ $srvValue.additionalPodAnnotations | toYaml }}
+        {{- end }}
+      labels:
+        {{- include "labels" (dict "global" $.Values.global "module" $srvName) | trim | nindent 8 }}
+        subset: stable
+    spec:
+      {{- with ($srvValue.podSecurityContext | default $.Values.global.podSecurityContext) }}
+      securityContext:
+        {{- toYaml . | trim | nindent 8 }}
+        {{- if eq ($srvValue.runAs.enabled) }}
+        fsGroup: {{ $srvValue.runAs.group }}
+        {{- end }}
+      {{- end }}
+      {{- with $.Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "init-copy-secret" (dict "root" $ "module" $srvName "global" $.Values.global "service" $srvValue "homeDir" $HOME_DIR) | trim | nindent 8 }}
+      containers:
+        {{- include "app-container" (dict "root" $ "name" $srvName "service" $srvValue "global" $.Values.global) | trim | nindent 8 }}
+      volumes:
+        - name: vault-volume
+          emptyDir:
+            sizeLimit: 100Mi
+        {{- if and $srvValue.exposeConfigMaps.items (kindIs "map" $srvValue.exposeConfigMaps.items) }}
+        - name: {{ include "resourceName" $ }}-{{ $srvName | replace " " "_" }}-cm-volume
+          configMap:
+            name: {{ include "resourceName" $ }}-{{ $srvName | replace " " "_"  }}-cm
+            optional: true
+        - name: {{ include "resourceName" $ }}-{{ $srvName | replace " " "_" }}-expose-cm-volume
+          configMap:
+            name: {{ include "resourceName" $ }}-{{ $srvName | replace " " "_"  }}-expose-cm
+            optional: true
+        {{- end }}
+        - name: {{ include "resourceName" $ }}-{{ $srvName | replace " " "_"  }}-secret-volume
+          secret:
+            secretName: {{ include "resourceName" $ }}-{{ $srvName | replace " " "_"  }}-secret
+            optional: true
+        {{- with $srvValue.persistentVolumes -}}
+        {{- if .enabled }}
+        {{- range $name, $meta := .claims -}}
+        {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $srvName }}
+        - name: {{ $name }}-data
+          persistentVolumeClaim:
+            claimName: {{ include "fullResourceName" $resourceNameParams }}-{{ $name | replace " " "_"  }}-pvc
+        {{- end }}
+        {{- range $claim := .existingClaims -}}
+        {{- $resourceNameParams := dict "projectName" $.Values.global.projectName "serviceName" $claim.service }}
+        - name: {{ $claim.name | replace " " "_" }}-data
+          persistentVolumeClaim:
+            claimName: {{ include "fullResourceName" $resourceNameParams }}-{{ $claim.name | replace " " "_" }}-pvc
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if $srvValue.additionalVolumes }}
+        {{- toYaml $srvValue.additionalVolumes | trim | nindent 8 }}
+        {{- end }}
+---
+{{ end }}
