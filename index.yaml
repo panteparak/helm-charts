@@ -1,5 +1,16 @@
 apiVersion: v1
 entries:
+  gateway-operator:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-07-27T11:32:53.558407479Z"
+    description: A Helm chart for Kubernetes
+    digest: 4c43aacb2be947db6d2e0c515a830f1a61e0ed19460815f1d4e83d2b3bf5293e
+    name: gateway-operator
+    type: application
+    urls:
+    - https://github.com/panteparak/helm-charts/releases/download/gateway-operator-1.0.0/gateway-operator-1.0.0.tgz
+    version: 1.0.0
   helm-flexi-toolkit:
   - apiVersion: v2
     appVersion: 1.16.0
@@ -12,4 +23,15 @@ entries:
     urls:
     - https://github.com/panteparak/helm-charts/releases/download/helm-flexi-toolkit-1.0.0/helm-flexi-toolkit-1.0.0.tgz
     version: 1.0.0
-generated: "2024-07-27T10:39:41.22589053Z"
+  k8s-create-namespace:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-07-27T11:32:53.739245544Z"
+    description: A Helm chart for Kubernetes Namespace Resources
+    digest: aaa822b8d44595050e0a5f72de2ef6e8c95a81a5c3676338194eb7727209dd31
+    name: k8s-create-namespace
+    type: application
+    urls:
+    - https://github.com/panteparak/helm-charts/releases/download/k8s-create-namespace-1.0.2/k8s-create-namespace-1.0.2.tgz
+    version: 1.0.2
+generated: "2024-07-27T11:32:53.739255864Z"
