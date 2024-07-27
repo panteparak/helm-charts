@@ -34,4 +34,15 @@ entries:
     urls:
     - https://github.com/panteparak/helm-charts/releases/download/k8s-create-namespace-1.0.2/k8s-create-namespace-1.0.2.tgz
     version: 1.0.2
-generated: "2024-07-27T11:32:53.739255864Z"
+  namespace-resource-manifest:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-07-27T19:10:07.798160483Z"
+    description: A Helm chart for Kubernetes Namespace Resources
+    digest: 1b374968a41b1c9d1703767f443d560dbd7dee6f437bb352a5b22961c8e91739
+    name: namespace-resource-manifest
+    type: application
+    urls:
+    - https://github.com/panteparak/helm-charts/releases/download/namespace-resource-manifest-1.0.2/namespace-resource-manifest-1.0.2.tgz
+    version: 1.0.2
+generated: "2024-07-27T19:10:07.798171404Z"
