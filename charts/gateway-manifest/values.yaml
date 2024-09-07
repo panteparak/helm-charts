@@ -3,6 +3,7 @@ urls: []
 gateway:
   enabled: true
   selector:
+    "istio.io/rev": stable
     istio: internal-ingress
   tlsCertificate: 
     enabled: true
